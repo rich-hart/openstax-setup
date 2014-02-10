@@ -32,7 +32,7 @@ def services_setup():
             run('rvm gemset create services')
             run('rvm gemset use services')
             run('bundle install --without production')
-            run('rake db:setup')
+            run('rake db:setup', warn_only=True)
     print """
 To use the facebook and twitter login:
 
@@ -76,7 +76,7 @@ def example_setup():
             run('bundle install --without production')
     with cd('connect-rails/example'):
         with prefix('source {}'.format(RVM)):
-            run('rake db:setup')
+            run('rake db:setup', warn_only=True)
             run('rake openstax_connect:install:migrations')
 
     print """
@@ -92,9 +92,11 @@ To set up openstax/connect-rails with openstax/services:
    openstax_application_id: '54cc59280662417f2b30c6869baa9c6cb3360c81c4f9d829155d2485d5bcfeed'
    openstax_application_secret: '7ce94d06d7bc8aec4ff81c3f65883300e1e2fa10051e60e58de6d79de91d8608'
 
-5. Set config.openstax_services_url in connect-rails/example/config/initializers/openstax_connect.rb to "http://{server}:2999/" (or the IP address of {server})
+5. Set config.openstax_services_url in connect-rails/example/config/initializers/openstax_connect.rb to "https://{server}:3000/" (or the IP address of {server})
 
-6. Go to http://{server}:4000 and click log in
+6. Start the example application.
+
+7. Go to http://{server}:4000 and click log in
 
 See https://github.com/openstax/connect-rails for full documentation.
 """.format(server=env.host)

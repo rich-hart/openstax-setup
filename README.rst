@@ -38,18 +38,20 @@ Example Usage
 
 4. Read the output and do some manual setup.
 
-5. Set up openstax/connect-rails example on raring:
-
-   ``./bin/fab -H raring example_setup``
-
-6. Read the output and do more manual setup.
-
-7. Start the applications (in 3 terminals):
+5. Start services (in 2 terminals):
 
    ``./bin/fab -H raring services_run``
 
    ``./bin/fab -H raring services_run_ssl``
 
+6. Set up openstax/connect-rails example on raring:
+
+   ``./bin/fab -H raring example_setup``
+
+7. Read the output and do more manual setup.
+
+8. Start example:
+
    ``./bin/fab -H raring example_run``
 
-8. Go to http://raring:4000 and try to login.
+9. Go to http://raring:4000 and try to login.
