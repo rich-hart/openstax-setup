@@ -55,3 +55,8 @@ Example Usage
    ``./bin/fab -H raring example_run``
 
 9. Go to http://raring:4000 and try to login.
+
+Login page screenshot
+---------------------
+
+.. image:: login.jpg
