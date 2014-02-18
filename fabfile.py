@@ -74,6 +74,13 @@ def example_setup():
             run('rvm gemset create connect-rails')
             run('rvm gemset use connect-rails')
             run('bundle install --without production')
+    pwd = run('pwd')
+    filename = 'connect-rails/lib/openstax/connect/engine.rb'
+    if not fabric.contrib.files.contains(filename, ':client_options'):
+        fabric.contrib.files.sed(filename,
+                'OpenStax::Connect.configuration.openstax_application_secret',
+                'OpenStax::Connect.configuration.openstax_application_secret, '
+                '{:client_options => {:ssl => {:ca_file => "%s/server.crt"}}}' % pwd)
     with cd('connect-rails/example'):
         with prefix('source {}'.format(RVM)):
             run('rake db:setup', warn_only=True)

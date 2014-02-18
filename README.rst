@@ -32,7 +32,7 @@ Example Usage
 
 2. (Optional) Set up your ssh key and hostname in your ssh config.
 
-3. Set up openstax/services on raring:
+3. Set up openstax/services on raring: (The "Common Name" should be the site name, "raring" in this case, when creating the ssl cert)
 
    ``./bin/fab -H raring services_setup``
 
