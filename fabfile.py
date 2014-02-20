@@ -63,6 +63,14 @@ def services_run_ssl():
         with prefix('source {}'.format(RVM)):
             run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
 
+def services_test(test_case=None):
+    with cd('services'):
+        with prefix('source {}'.format(RVM)):
+            if test_case:
+                run('rspec {}'.format(test_case))
+            else:
+                run('rake')
+
 def example_setup():
     _setup()
     sudo('apt-get install --yes nodejs')
