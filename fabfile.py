@@ -21,16 +21,16 @@ def _setup_ssl():
         run('openssl req -new -key server.key -out server.csr')
         run('openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt')
 
-def services_setup():
+def accounts_setup():
     _setup()
     _setup_ssl()
-    if not fabric.contrib.files.exists('services'):
-        run('git clone https://github.com/openstax/services')
-    with cd('services'):
+    if not fabric.contrib.files.exists('accounts'):
+        run('git clone https://github.com/openstax/accounts')
+    with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('rvm install ruby-1.9.3-p392')
-            run('rvm gemset create services')
-            run('rvm gemset use services')
+            run('rvm gemset create accounts')
+            run('rvm gemset use accounts')
             run('bundle install --without production')
             run('rake db:setup', warn_only=True)
     print """
@@ -38,11 +38,11 @@ To use the facebook and twitter login:
 
 1. Create an app on facebook and twitter
 
-2. Paste the "App ID" and "App Secret" from the facebook app settings page into services/config/secret_settings.yml:
+2. Paste the "App ID" and "App Secret" from the facebook app settings page into accounts/config/secret_settings.yml:
    facebook_app_id: '1234567890'
    facebook_app_secret: '1234567890abcdef'
 
-   Paste the "Consumer Key" and "Consumer Secret" from the twitter app settings page into services/config/secret_settings.yml:
+   Paste the "Consumer Key" and "Consumer Secret" from the twitter app settings page into accounts/config/secret_settings.yml:
    twitter_consumer_key: 'xxxxx'
    twitter_consumer_secret: 'yyyyy'
 
@@ -50,26 +50,31 @@ To use the facebook and twitter login:
 
 """.format(server=env.host)
 
-def services_run():
-    with cd('services'):
+def accounts_run():
+    with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('rake db:migrate')
             # ctrl-c doesn't kill the rails server so the old server is still running
             run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
             run('rails server')
 
-def services_run_ssl():
-    with cd('services'):
+def accounts_run_ssl():
+    with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
 
-def services_test(test_case=None):
-    with cd('services'):
+def accounts_test(test_case=None):
+    with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             if test_case:
                 run('rspec {}'.format(test_case))
             else:
                 run('rake')
+
+def accounts_routes():
+    with cd('accounts'):
+        with prefix('source {}'.format(RVM)):
+            run('rake routes')
 
 def example_setup():
     _setup()
@@ -95,7 +100,7 @@ def example_setup():
             run('rake openstax_connect:install:migrations')
 
     print """
-To set up openstax/connect-rails with openstax/services:
+To set up openstax/connect-rails with openstax/accounts:
 
 1. Go to http://{server}:2999/oauth/applications
 
