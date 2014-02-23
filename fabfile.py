@@ -3,6 +3,7 @@ import fabric.contrib.files
 
 env.use_ssh_config = True
 RVM = '~/.rvm/scripts/rvm'
+PHANTOMJS = '~/phantomjs-1.9.7-linux-x86_64/bin'
 
 def _setup():
     sudo('apt-get update')
@@ -21,9 +22,15 @@ def _setup_ssl():
         run('openssl req -new -key server.key -out server.csr')
         run('openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt')
 
+def _setup_phantomjs():
+    if not fabric.contrib.files.exists('phantomjs-1.9.7-linux-x86_64'):
+        run("wget 'https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.7-linux-x86_64.tar.bz2'")
+        run('tar xf phantomjs-1.9.7-linux-x86_64.tar.bz2')
+
 def accounts_setup():
     _setup()
     _setup_ssl()
+    _setup_phantomjs()
     if not fabric.contrib.files.exists('accounts'):
         run('git clone https://github.com/openstax/accounts')
     with cd('accounts'):
@@ -67,9 +74,9 @@ def accounts_test(test_case=None):
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('rspec {}'.format(test_case))
+                run('PATH=$PATH:{} rspec {}'.format(PHANTOMJS, test_case))
             else:
-                run('rake')
+                run('PATH=$PATH:{} rake'.format(PHANTOMJS))
 
 def accounts_routes():
     with cd('accounts'):
