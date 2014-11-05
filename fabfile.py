@@ -173,3 +173,42 @@ def example_run():
             # ctrl-c doesn't kill the rails server so the old server is still running
             run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
             run('rails server')
+
+def accounts_pyramid_run():
+    """Run openstax-accounts
+    """
+    with cd('openstax-accounts'):
+        run('./bin/python setup.py install')
+        run('./bin/pserve development.ini')
+
+def accounts_pyramid_test(test_case=None, display=None):
+    """Run openstax-accounts tests
+    """
+    # sudo('apt-get install xvfb')
+    if test_case:
+        test_case = '-s {}'.format(test_case)
+    else:
+        test_case = ''
+    if not fabric.contrib.files.exists('openstax-accounts'):
+        run('git clone git@github.com:karenc/openstax-accounts.git')
+    if not fabric.contrib.files.exists('openstax-accounts/chromedriver'):
+        with cd('openstax-accounts'):
+            run("wget 'http://chromedriver.storage.googleapis.com/2.9/chromedriver_linux64.zip'")
+            run('unzip chromedriver_linux64.zip')
+            run('rm chromedriver_linux64.zip')
+    with cd('openstax-accounts'):
+        env = ['PATH=$PATH:.']
+        if display:
+            env.append('DISPLAY={}'.format(display))
+        run('./bin/python setup.py install')
+        if test_case:
+            run('{} {} ./bin/python setup.py test {}'.format(' '.join(env),
+                not display and 'xvfb-run' or '', test_case))
+        else:
+            env.append('TESTING_INI=test_stub.ini')
+            run('{} {} ./bin/python setup.py test -s '
+                'openstax_accounts.tests.FunctionalTests.test_stub'
+                .format(' '.join(env), not display and 'xvfb-run' or ''))
+            env[-1] = 'TESTING_INI=test_local.ini'
+            run('{} {} ./bin/python setup.py test'
+                .format(' '.join(env), not display and 'xvfb-run' or ''))
