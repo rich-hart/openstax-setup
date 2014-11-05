@@ -6,13 +6,14 @@ RVM = '~/.rvm/scripts/rvm'
 PHANTOMJS = '~/phantomjs-1.9.7-linux-x86_64/bin'
 
 def _setup():
-    sudo('apt-get update')
+    #sudo('apt-get update')
     sudo('apt-get install --yes git')
     _setup_rvm()
 
 def _setup_rvm():
     if not fabric.contrib.files.exists(RVM):
-        run('wget -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
+        sudo('apt-get install --yes curl')
+        run('wget --no-check-certificate -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
 
 def _setup_ssl():
     if not fabric.contrib.files.exists('server.crt'):
@@ -27,15 +28,20 @@ def _setup_phantomjs():
         run("wget 'https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.7-linux-x86_64.tar.bz2'")
         run('tar xf phantomjs-1.9.7-linux-x86_64.tar.bz2')
 
+def _postgres_user_exists(username):
+    return '1' in sudo('psql postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname=\'%s\'"' % username, user='postgres')
+
+def _postgres_db_exists(dbname):
+    return dbname in sudo('psql -l --pset="pager=off"', user='postgres')
+
 def accounts_setup():
     _setup()
     _setup_ssl()
-    _setup_phantomjs()
     if not fabric.contrib.files.exists('accounts'):
         run('git clone https://github.com/openstax/accounts')
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install ruby-1.9.3-p392')
+            run('rvm install $(cat .ruby-version)')
             run('rvm gemset create accounts')
             run('rvm gemset use accounts')
             run('bundle install --without production')
@@ -57,6 +63,35 @@ To use the facebook and twitter login:
 
 """.format(server=env.host)
 
+def accounts_setup_postgres():
+    _setup()
+    _setup_ssl()
+    if not fabric.contrib.files.exists('accounts'):
+        run('git clone https://github.com/openstax/accounts')
+    if not _postgres_user_exists('accounts'):
+        sudo('psql -d postgres -c "CREATE USER accounts WITH SUPERUSER PASSWORD \'accounts\';"', user='postgres')
+    if not _postgres_db_exists('accounts'):
+        sudo('createdb -O accounts accounts', user='postgres')
+    with cd('accounts'):
+        with prefix('source {}'.format(RVM)):
+            run('rvm install $(cat .ruby-version)')
+            run('rvm gemset create accounts')
+            run('rvm gemset use accounts')
+            if not fabric.contrib.files.contains('Gemfile', "^gem 'pg'"):
+                fabric.contrib.files.append('Gemfile', "gem 'pg'")
+            if not fabric.contrib.files.contains('config/database.yml', '#development'):
+                fabric.contrib.files.sed('config/database.yml', '^([^#])', r'#\1')
+                fabric.contrib.files.append('config/database.yml', '''
+development:
+  adapter: postgresql
+  database: accounts
+  username: accounts
+  password: accounts
+  port: 5432
+''')
+            run('bundle install --without production')
+            run('rake db:setup', warn_only=True)
+
 def accounts_run():
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
@@ -70,12 +105,15 @@ def accounts_run_ssl():
         with prefix('source {}'.format(RVM)):
             run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
 
-def accounts_test(test_case=None):
+def accounts_test(test_case=None, traceback=''):
+    _setup_phantomjs()
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('PATH=$PATH:{} rspec {}'.format(PHANTOMJS, test_case))
+                run('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
             else:
+#                run('bundle install')
+#                run('RAILS_ENV=test rake db:setup')
                 run('PATH=$PATH:{} rake'.format(PHANTOMJS))
 
 def accounts_routes():
