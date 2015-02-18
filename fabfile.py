@@ -1,5 +1,8 @@
+import StringIO
+
 from fabric.api import *
 import fabric.contrib.files
+import fabric.operations
 
 env.use_ssh_config = True
 RVM = '~/.rvm/scripts/rvm'
@@ -104,6 +107,28 @@ def accounts_run_ssl():
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
+
+def accounts_run_unicorn():
+    with cd('accounts'):
+        if not fabric.contrib.files.exists('config/unicorn.rb'):
+            fabric.operations.put(StringIO.StringIO("""\
+working_directory "{pwd}"
+
+pid "{pwd}/unicorn.pid"
+
+stderr_path "{pwd}/log/unicorn.log"
+stdout_path "{pwd}/log/unicorn.log"
+
+listen "/tmp/unicorn.accounts.sock"
+
+worker_processes 2
+
+timeout 30
+""".format(pwd=run('pwd'))), 'config/unicorn.rb')
+        with prefix('source {}'.format(RVM)):
+            run('bundle install')
+            run('kill -9 `cat unicorn.pid` || 0', warn_only=True)
+            run('unicorn_rails -D -c config/unicorn.rb')
 
 def accounts_test(test_case=None, traceback=''):
     _setup_phantomjs()
