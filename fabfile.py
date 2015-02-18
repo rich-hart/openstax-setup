@@ -2,7 +2,6 @@ import StringIO
 
 from fabric.api import *
 import fabric.contrib.files
-import fabric.operations
 
 env.use_ssh_config = True
 RVM = '~/.rvm/scripts/rvm'
@@ -49,6 +48,7 @@ def accounts_setup():
             run('rvm gemset use accounts')
             run('bundle install --without production')
             run('rake db:setup', warn_only=True)
+    _configure_accounts_nginx()
     print """
 To use the facebook and twitter login:
 
@@ -108,10 +108,46 @@ def accounts_run_ssl():
         with prefix('source {}'.format(RVM)):
             run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
 
+def _configure_accounts_nginx():
+    sudo('apt-get install --yes nginx')
+    if not fabric.contrib.files.exists('/etc/nginx/sites-available/accounts',
+                                       use_sudo=True):
+        put(StringIO.StringIO("""\
+upstream unicorn {
+  server unix:/tmp/unicorn.accounts.sock fail_timeout=0;
+}
+
+server {
+  listen 3000 default deferred;
+  keepalive_timeout 5;
+  ssl on;
+  ssl_ciphers RC4:HIGH:!aNULL:!MD5;
+  ssl_prefer_server_ciphers on;
+  ssl_certificate %(home_dir)s/server.crt;
+  ssl_certificate_key %(home_dir)s/server.key;
+  add_header Strict-Transport-Security "max-age=631138519";
+  root %(home_dir)s/accounts/public;
+  try_files $uri/index.html $uri @unicorn;
+
+  location @unicorn {
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $http_host;
+    proxy_redirect off;
+    proxy_pass http://unicorn;
+  }
+}
+""" % {'home_dir': run('pwd')}),
+            '/etc/nginx/sites-available/accounts',
+            use_sudo=True)
+        sudo('ln -sf /etc/nginx/sites-available/accounts '
+             '/etc/nginx/sites-enabled/accounts')
+        sudo('/etc/init.d/nginx restart')
+
 def accounts_run_unicorn():
     with cd('accounts'):
         if not fabric.contrib.files.exists('config/unicorn.rb'):
-            fabric.operations.put(StringIO.StringIO("""\
+            put(StringIO.StringIO("""\
 working_directory "{pwd}"
 
 pid "{pwd}/unicorn.pid"
