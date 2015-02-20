@@ -1,4 +1,5 @@
 import StringIO
+import time
 
 from fabric.api import *
 import fabric.contrib.files
@@ -8,7 +9,7 @@ RVM = '~/.rvm/scripts/rvm'
 PHANTOMJS = '~/phantomjs-1.9.7-linux-x86_64/bin'
 
 def _setup():
-    #sudo('apt-get update')
+    sudo('apt-get update')
     sudo('apt-get install --yes git')
     _setup_rvm()
 
@@ -95,7 +96,24 @@ development:
             run('bundle install --without production')
             run('rake db:setup', warn_only=True)
 
-def accounts_run():
+
+def accounts_create_admin_user(username='admin', password='password'):
+    """Create an admin user in accounts (default admin/password)
+    """
+    print('Creating admin user with username {} and password {}'.format(
+        username, password))
+    with cd('accounts'):
+        put(StringIO.StringIO("""\
+user = FactoryGirl.create :user, :admin, :terms_agreed, username: '{}'
+identity = FactoryGirl.create :identity, user: user, password: '{}'
+FactoryGirl.create :authentication, provider: 'identity', uid: identity.id.to_s, user: user
+""".format(username, password)), 'admin_user.rb')
+        with prefix('source {}'.format(RVM)):
+            run('bundle exec rails console <admin_user.rb')
+
+
+def _accounts_run():
+    # Should use accounts_run_unicorn
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('rake db:migrate')
@@ -103,7 +121,9 @@ def accounts_run():
             run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
             run('rails server')
 
-def accounts_run_ssl():
+
+def _accounts_run_ssl():
+    # should use accounts_run_unicorn
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
@@ -163,6 +183,7 @@ timeout 30
 """.format(pwd=run('pwd'))), 'config/unicorn.rb')
         with prefix('source {}'.format(RVM)):
             run('bundle install')
+            run('gem install unicorn-rails')
             run('kill -9 `cat unicorn.pid` || 0', warn_only=True)
             run('unicorn_rails -D -c config/unicorn.rb')
 
@@ -173,9 +194,8 @@ def accounts_test(test_case=None, traceback=''):
             if test_case:
                 run('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
             else:
-#                run('bundle install')
-#                run('RAILS_ENV=test rake db:setup')
-                run('PATH=$PATH:{} rake'.format(PHANTOMJS))
+                run('bundle install')
+                run('PATH=$PATH:{} rake --trace'.format(PHANTOMJS))
 
 def accounts_routes():
     with cd('accounts'):
@@ -242,34 +262,54 @@ def accounts_pyramid_run():
         run('./bin/python setup.py install')
         run('./bin/pserve development.ini')
 
-def accounts_pyramid_test(test_case=None, display=None):
+
+def accounts_pyramid_test(test_case=None, display=None, test_all=None):
     """Run openstax-accounts tests
-    """
-    # sudo('apt-get install xvfb')
+    if not display:
+        sudo('apt-get install --yes xvfb')
+        run('pkill -f xvfb', warn_only=True)
     if test_case:
         test_case = '-s {}'.format(test_case)
     else:
         test_case = ''
     if not fabric.contrib.files.exists('openstax-accounts'):
-        run('git clone git@github.com:karenc/openstax-accounts.git')
+        run('git clone https://github.com/Connexions/openstax-accounts.git')
     if not fabric.contrib.files.exists('openstax-accounts/chromedriver'):
         with cd('openstax-accounts'):
-            run("wget 'http://chromedriver.storage.googleapis.com/2.9/chromedriver_linux64.zip'")
-            run('unzip chromedriver_linux64.zip')
-            run('rm chromedriver_linux64.zip')
+            if not fabric.contrib.files.exists('chromedriver'):
+                run("wget 'http://chromedriver.storage.googleapis.com/2.14/chromedriver_linux64.zip'")
+                sudo('apt-get install --yes unzip')
+                run('unzip chromedriver_linux64.zip')
+                run('rm chromedriver_linux64.zip')
+                sudo('apt-get install --yes chromium-browser')
+    sudo('apt-get install --yes python-virtualenv')
     with cd('openstax-accounts'):
+        if not fabric.contrib.files.exists('bin/python'):
+            run('virtualenv .')
         env = ['PATH=$PATH:.']
+        # TODO remove when the code has been merged
+        run('git checkout refactor-tests', warn_only=True)
         if display:
             env.append('DISPLAY={}'.format(display))
         run('./bin/python setup.py install')
         if test_case:
             run('{} {} ./bin/python setup.py test {}'.format(' '.join(env),
                 not display and 'xvfb-run' or '', test_case))
+        elif test_all:
+            run('{} {} ./bin/python setup.py test -s '
+                'openstax_accounts.tests.FunctionalTests'
+                .format(' '.join(env), not display and 'xvfb-run' or ''))
+            env.append('TESTING_INI=test_stub.ini')
+            run('{} {} ./bin/python setup.py test -s '
+                'openstax_accounts.tests.StubTests'
+                .format(' '.join(env), not display and 'xvfb-run' or ''))
         else:
             env.append('TESTING_INI=test_stub.ini')
             run('{} {} ./bin/python setup.py test -s '
-                'openstax_accounts.tests.FunctionalTests.test_stub'
+                'openstax_accounts.tests.StubTests'
                 .format(' '.join(env), not display and 'xvfb-run' or ''))
+            time.sleep(1)
             env[-1] = 'TESTING_INI=test_local.ini'
-            run('{} {} ./bin/python setup.py test'
+            run('{} {} ./bin/python setup.py test -s '
+                'openstax_accounts.tests.FunctionalTests.test_local'
                 .format(' '.join(env), not display and 'xvfb-run' or ''))
