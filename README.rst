@@ -28,35 +28,28 @@ Installation
 Example Usage
 -------------
 
-1. Create a VM or have a server with Ubuntu 13.04 (which we will call raring).
+1. Create a VM or have a server with Ubuntu 14.04.1 (which we will call trusty).
 
 2. (Optional) Set up your ssh key and hostname in your ssh config.
 
-3. Set up openstax/services on raring: (The "Common Name" should be the site name, "raring" in this case, when creating the ssl cert)
+3. Set up openstax/accounts on raring: (The "Common Name" should be the site name, "trusty" in this case, when creating the ssl cert)::
 
-   ``./bin/fab -H raring services_setup``
+     ./bin/fab -H trusty accounts_setup
 
 4. Read the output and do some manual setup.
 
-5. Start services (in 2 terminals):
+5. Start openstax/accounts::
 
-   ``./bin/fab -H raring services_run``
+     ./bin/fab -H trusty accounts_run_unicorn
 
-   ``./bin/fab -H raring services_run_ssl``
+6. Create an admin user::
 
-6. Set up openstax/connect-rails example on raring:
+     ./bin/fab -H trusty accounts_create_admin_user
 
-   ``./bin/fab -H raring example_setup``
+7. Go to https://trusty:3000 and try to login as admin.
 
-7. Read the output and do more manual setup.
+8. If you want to also install the python pyramid app that uses openstax/accounts::
 
-8. Start example:
+     ./bin/fab -H trusty accounts_pyramid_test
 
-   ``./bin/fab -H raring example_run``
-
-9. Go to http://raring:4000 and try to login.
-
-Login page screenshot
----------------------
-
-.. image:: login.jpg
+   This installs Connexions/openstax-accounts and runs the stub test and the local accounts user test.
