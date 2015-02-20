@@ -80,6 +80,15 @@ def accounts_setup_postgres():
     """Set up openstax/accounts using postgres db"""
     _setup()
     _setup_ssl()
+    sudo('apt-get install --yes postgresql libpq-dev')
+    if not sudo('grep "^local\s*all\s*all\s*md5" '
+                '/etc/postgresql/*/main/pg_hba.conf', warn_only=True):
+        fabric.contrib.files.sed(
+            '/etc/postgresql/*/main/pg_hba.conf',
+            '^local\s+all\s+all\s+peer\s*',
+            'local all all md5',
+            use_sudo=True)
+        sudo('/etc/init.d/postgresql restart')
     if not fabric.contrib.files.exists('accounts'):
         run('git clone https://github.com/openstax/accounts')
     if not _postgres_user_exists('accounts'):
@@ -105,6 +114,7 @@ development:
 ''')
             run('bundle install --without production')
             run('rake db:setup', warn_only=True)
+    _configure_accounts_nginx()
 
 
 def accounts_create_admin_user(username='admin', password='password'):
