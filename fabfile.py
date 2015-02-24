@@ -321,8 +321,6 @@ def accounts_pyramid_test(test_case=None, display=None, test_all=None):
         if not fabric.contrib.files.exists('bin/python'):
             run('virtualenv .')
         env = ['PATH=$PATH:.']
-        # TODO remove when the code has been merged
-        run('git checkout refactor-tests', warn_only=True)
         if display:
             env.append('DISPLAY={}'.format(display))
         run('./bin/python setup.py install')
