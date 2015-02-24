@@ -220,6 +220,7 @@ def accounts_test(test_case=None, traceback=''):
                 run('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
             else:
                 run('bundle install')
+                run('rake db:migrate')
                 run('PATH=$PATH:{} rake --trace'.format(PHANTOMJS))
 
 
