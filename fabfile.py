@@ -346,3 +346,24 @@ def accounts_pyramid_test(test_case=None, display=None, test_all=None):
             run('{} {} ./bin/python setup.py test -s '
                 'openstax_accounts.tests.FunctionalTests.test_local'
                 .format(' '.join(env), not display and 'xvfb-run' or ''))
+
+def tutor_deployment_setup():
+    if not fabric.contrib.files.exists('tutor-deployment'):
+        run('git clone -b feature/exercises git@github.com:openstax/tutor-deployment.git')
+        sudo('pip install virtualenvwrapper')
+    with cd('tutor-deployment'):
+        with prefix('WORKON_HOME=$HOME/.environments'):
+            with prefix('source /usr/local/bin/virtualenvwrapper_lazy.sh'):
+                run('mkvirtualenv -p `which python2` tutordep')
+                with prefix('workon tutordep'):
+                    run('pip install -r requirements.txt')
+
+def accounts_deploy_qa():
+    with cd('tutor-deployment'):
+        with prefix('WORKON_HOME=$HOME/.environments'):
+            with prefix('source /usr/local/bin/virtualenvwrapper_lazy.sh'):
+                with prefix('workon tutordep'):
+                    run('ansible-playbook -i environments/qa/accounts-qa1 '
+                        'accounts_only.yml '
+                        '--vault-password-file $HOME/.ssh/vault-password-file '
+                        '--private-key $HOME/.ssh/tutor-qa-kp.pem')
