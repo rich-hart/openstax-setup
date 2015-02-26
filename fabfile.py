@@ -358,12 +358,12 @@ def tutor_deployment_setup():
                 with prefix('workon tutordep'):
                     run('pip install -r requirements.txt')
 
-def accounts_deploy_qa():
+def accounts_deploy(env='qa'):
     with cd('tutor-deployment'):
         with prefix('WORKON_HOME=$HOME/.environments'):
             with prefix('source /usr/local/bin/virtualenvwrapper_lazy.sh'):
                 with prefix('workon tutordep'):
-                    run('ansible-playbook -i environments/qa/accounts-qa1 '
+                    run('ansible-playbook -i environments/{env}/accounts-{env}1 '
                         'accounts_only.yml '
-                        '--vault-password-file $HOME/.ssh/vault-password-file '
-                        '--private-key $HOME/.ssh/tutor-qa-kp.pem')
+                        '--vault-password-file $HOME/.ssh/vault-accounts-{env}1 '
+                        '--private-key $HOME/.ssh/tutor-{env}-kp.pem'.format(env=env))
