@@ -367,3 +367,20 @@ def accounts_deploy(env='qa'):
                         'accounts_only.yml '
                         '--vault-password-file $HOME/.ssh/vault-accounts-{env}1 '
                         '--private-key $HOME/.ssh/tutor-{env}-kp.pem'.format(env=env))
+
+def openstax_api_setup():
+    if not fabric.contrib.files.exists('openstax_api'):
+        run('git clone git@github.com:openstax/openstax_api.git')
+    with cd('openstax_api'):
+        with prefix('source {}'.format(RVM)):
+            run('rvm install $(cat .ruby-version)')
+            run('rvm gemset create openstax_api')
+            run('rvm gemset use openstax_api')
+
+def openstax_api_test():
+    with cd('openstax_api'):
+        with prefix('source {}'.format(RVM)):
+            run('rvm gemset use openstax_api')
+            run('bundle')
+            run('rake db:migrate')
+            run('rake')
