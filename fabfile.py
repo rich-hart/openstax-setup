@@ -44,12 +44,15 @@ def _postgres_db_exists(dbname):
     return dbname in sudo('psql -l --pset="pager=off"', user='postgres')
 
 
-def accounts_setup():
+def accounts_setup(https=''):
     """Set up openstax/accounts"""
     _setup()
     _setup_ssl()
     if not fabric.contrib.files.exists('accounts'):
-        run('git clone https://github.com/openstax/accounts')
+        if https:
+            run('git clone https://github.com/openstax/accounts')
+        else:
+            run('git clone git@github.com:openstax/accounts')
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('rvm install $(cat .ruby-version)')
@@ -76,7 +79,7 @@ To use the facebook and twitter login:
 """.format(server=env.host)
 
 
-def accounts_setup_postgres():
+def accounts_setup_postgres(https=''):
     """Set up openstax/accounts using postgres db"""
     _setup()
     _setup_ssl()
@@ -90,7 +93,10 @@ def accounts_setup_postgres():
             use_sudo=True)
         sudo('/etc/init.d/postgresql restart')
     if not fabric.contrib.files.exists('accounts'):
-        run('git clone https://github.com/openstax/accounts')
+        if https:
+            run('git clone https://github.com/openstax/accounts')
+        else:
+            run('git clone git@github.com:openstax/accounts.git')
     if not _postgres_user_exists('accounts'):
         sudo('psql -d postgres -c "CREATE USER accounts WITH SUPERUSER PASSWORD \'accounts\';"', user='postgres')
     if not _postgres_db_exists('accounts'):
@@ -291,6 +297,15 @@ def example_run():
             run('rails server')
 
 
+def accounts_pyramid_setup(https=''):
+    """Set up Connexions/openstax-accounts (python)"""
+    if not fabric.contrib.files.exists('openstax-accounts'):
+        if https:
+            run('git clone https://github.com/Connexions/openstax-accounts.git')
+        else:
+            run('git clone git@github.com:Connexions/openstax-accounts.git')
+
+
 def accounts_pyramid_run():
     """Run Connexions/openstax-accounts (python)"""
     with cd('openstax-accounts'):
@@ -368,9 +383,12 @@ def accounts_deploy(env='qa'):
                         '--vault-password-file $HOME/.ssh/vault-accounts-{env}1 '
                         '--private-key $HOME/.ssh/tutor-{env}-kp.pem'.format(env=env))
 
-def openstax_api_setup():
+def openstax_api_setup(https=''):
     if not fabric.contrib.files.exists('openstax_api'):
-        run('git clone git@github.com:openstax/openstax_api.git')
+        if https:
+            run('git clone https://github.com/openstax/openstax_api.git')
+        else:
+            run('git clone git@github.com:openstax/openstax_api.git')
     with cd('openstax_api'):
         with prefix('source {}'.format(RVM)):
             run('rvm install $(cat .ruby-version)')
