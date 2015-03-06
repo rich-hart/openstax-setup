@@ -213,7 +213,8 @@ timeout 30
         with prefix('source {}'.format(RVM)):
             run('bundle install')
             run('gem install unicorn-rails')
-            run('kill -9 `cat unicorn.pid` || 0', warn_only=True)
+            run('pkill -f unicorn_rails || 0', warn_only=True)
+            run('rm -f /tmp/unicorn.accounts.sock')
             run('unicorn_rails -D -c config/unicorn.rb')
 
 
