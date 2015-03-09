@@ -59,6 +59,7 @@ def accounts_setup(https=''):
             run('rvm gemset create accounts')
             run('rvm gemset use accounts')
             run('bundle install --without production')
+            run('gem install unicorn-rails')
             run('rake db:setup', warn_only=True)
     _configure_accounts_nginx()
     print """
@@ -119,6 +120,7 @@ development:
   port: 5432
 ''')
             run('bundle install --without production')
+            run('gem install unicorn-rails')
             run('rake db:setup', warn_only=True)
     _configure_accounts_nginx()
 
@@ -212,7 +214,6 @@ timeout 30
 """.format(pwd=run('pwd'))), 'config/unicorn.rb')
         with prefix('source {}'.format(RVM)):
             run('bundle install')
-            run('gem install unicorn-rails')
             run('pkill -f unicorn_rails || 0', warn_only=True)
             run('rm -f /tmp/unicorn.accounts.sock')
             run('unicorn_rails -D -c config/unicorn.rb')
