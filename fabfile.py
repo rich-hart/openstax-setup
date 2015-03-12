@@ -404,3 +404,52 @@ def openstax_api_test():
             run('bundle')
             run('rake db:migrate')
             run('rake')
+
+def biglearn_algs_setup():
+    """Set up openstax/biglearn-algs"""
+    sudo('apt-get install python-numpy python-scipy')
+    sudo('pip install virtualenvwrapper')
+    if not fabric.contrib.files.exists('biglearn-algs'):
+        run('git clone git@github.com:openstax/biglearn-algs.git')
+    with cd('biglearn-algs'
+            ), prefix('export WORKON_HOME=$HOME/.environments'
+                      ), prefix('source /usr/local/bin/virtualenvwrapper.sh'):
+        # --system-side-packages includes dist packages (like scipy and
+        # numpy) in virtualenv
+        run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
+        with prefix('workon blapidev'):
+            run('pip install -e .')
+
+def biglearn_algs_test():
+    """Run openstax/biglearn-algs tests"""
+    with cd('biglearn-algs'):
+        with prefix('export WORKON_HOME=$HOME/.environments'):
+            with prefix('source /usr/local/bin/virtualenvwrapper.sh'):
+                with prefix('workon blapidev'):
+                    run('python setup.py test')
+
+def biglearn_common_setup():
+    """Set up openstax/biglearn-common"""
+    sudo('pip install virtualenvwrapper')
+    if not fabric.contrib.files.exists('biglearn-common'):
+        run('git clone git@github.com:openstax/biglearn-common.git')
+    with cd('biglearn-common'
+            ), prefix('export WORKON_HOME=$HOME/.environments'
+                      ), prefix('source /usr/local/bin/virtualenvwrapper.sh'):
+        run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
+        with prefix('workon blapidev'):
+            run('pip install -e .')
+
+def biglearn_platform_setup():
+    """Set up openstax/biglearn-platform"""
+    biglearn_common_setup()
+    biglearn_algs_setup()
+    sudo('pip install virtualenvwrapper')
+    if not fabric.contrib.files.exists('biglearn-platform'):
+        run('git clone git@github.com:openstax/biglearn-platform.git')
+    with cd('biglearn-platform/app'
+            ), prefix('export WORKON_HOME=$HOME/.environments'
+                      ), prefix('source /usr/local/bin/virtualenvwrapper.sh'):
+        run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
+        with prefix('workon blapidev'):
+            run('pip install -e .')
