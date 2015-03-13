@@ -208,7 +208,7 @@ stdout_path "{pwd}/log/unicorn.log"
 
 listen "/tmp/unicorn.accounts.sock"
 
-worker_processes 2
+worker_processes 1
 
 timeout 30
 """.format(pwd=run('pwd'))), 'config/unicorn.rb')
