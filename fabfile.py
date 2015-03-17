@@ -453,3 +453,42 @@ def biglearn_platform_setup():
         run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
         with prefix('workon blapidev'):
             run('pip install -e .')
+
+def tutor_server_setup(https=''):
+    """Set up openstax/tutor-server"""
+    _setup()
+    sudo('apt-get install --yes qt5-default libqt5webkit5-dev')
+    if not fabric.contrib.files.exists('tutor-server'):
+        if https:
+            run('git clone https://github.com/openstax/tutor-server.git')
+        else:
+            run('git clone git@github.com:openstax/tutor-server.git')
+    with cd('tutor-server'):
+        with prefix('source {}'.format(RVM)):
+            run('rvm install $(cat .ruby-version)')
+            run('rvm gemset create $(cat .ruby-gemset)')
+            run('rvm gemset use $(cat .ruby-gemset)')
+            run('bundle install --without production')
+            run('rake db:migrate')
+            run('rake db:seed')
+            run('rails generate secrets')
+
+def tutor_server_run():
+    """Run rails server on openstax/tutor-server"""
+    with cd('tutor-server'):
+        with prefix('source {}'.format(RVM)):
+            if fabric.contrib.files.exists('tmp/pids/server.pid'):
+                run('kill `cat tmp/pids/server.pid`', warn_only=True)
+                run('rm -f tmp/pids/server.pid')
+            run('rails server -b 0.0.0.0')
+
+def tutor_server_test(test_case=None):
+    """Run openstax/tutor-server tests"""
+    with cd('tutor-server'):
+        with prefix('source {}'.format(RVM)):
+            if test_case:
+                run('rspec {}'.format(test_case))
+            else:
+                run('bundle install --without production')
+                run('rake db:migrate')
+                run('rake')
