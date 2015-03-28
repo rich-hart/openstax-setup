@@ -356,14 +356,8 @@ def accounts_pyramid_test(test_case=None, display=None, test_all=None):
                 'openstax_accounts.tests.StubTests'
                 .format(' '.join(env), not display and 'xvfb-run' or ''))
         else:
-            env.append('TESTING_INI=test_stub.ini')
-            run('{} {} ./bin/python setup.py test -s '
-                'openstax_accounts.tests.StubTests'
-                .format(' '.join(env), not display and 'xvfb-run' or ''))
-            time.sleep(1)
-            env[-1] = 'TESTING_INI=test_local.ini'
-            run('{} {} ./bin/python setup.py test -s '
-                'openstax_accounts.tests.FunctionalTests.test_local'
+            env.append('LOCAL_INI=.travis_testing.ini')
+            run('{} {} ./bin/python setup.py test'
                 .format(' '.join(env), not display and 'xvfb-run' or ''))
 
 def tutor_deployment_setup():
