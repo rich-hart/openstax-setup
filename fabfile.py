@@ -58,6 +58,8 @@ def accounts_setup(https=''):
             run('rvm install $(cat .ruby-version)')
             run('rvm gemset create accounts')
             run('rvm gemset use accounts')
+            # FIXME not sure why bundle isn't installed
+            run('which bundle || gem install bundle')
             run('bundle install --without production')
             run('gem install unicorn-rails')
             run('rake db:setup', warn_only=True)
