@@ -18,7 +18,8 @@ def _setup():
 def _setup_rvm():
     if not fabric.contrib.files.exists(RVM):
         sudo('apt-get install --yes curl')
-        run('wget --no-check-certificate -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
+        run('gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3')
+        run('wget -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
 
 
 def _setup_ssl():
@@ -486,5 +487,42 @@ def tutor_server_test(test_case=None):
                 run('rspec {}'.format(test_case))
             else:
                 run('bundle install --without production')
+                run('rake db:migrate')
+                run('rake')
+
+def osc_setup():
+    """Set up lml/osc"""
+    _setup()
+    sudo('apt-get install libxml2-dev libxslt-dev')
+    if not fabric.contrib.files.exists('osc'):
+        run('git clone git@github.com:lml/osc.git')
+    with cd('osc'):
+        run('rm -f .rvmrc')
+        with prefix('source {}'.format(RVM)):
+            run('rvm install $(cat .ruby-version)')
+            run('rvm gemset create $(cat .ruby-gemset)')
+            run('rvm gemset use $(cat .ruby-gemset)')
+            # Install bundler in case it is not installed
+            run('which bundle || gem install bundler')
+            run('bundle install --without production')
+            run('rake db:setup')
+
+def osc_run():
+    """Run lml/osc server"""
+    with cd('osc'):
+        with prefix('source {}'.format(RVM)):
+            # ctrl-c doesn't kill the rails server so the old server is still
+            # running
+            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            run('rails server -p 3002')
+
+def osc_test(test_case=None):
+    """Run lml/osc tests"""
+    with cd('osc'):
+        with prefix('source {}'.format(RVM)):
+            if test_case:
+                run('rspec -b {}'.format(test_case))
+            else:
+                run('bundle install')
                 run('rake db:migrate')
                 run('rake')
