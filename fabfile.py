@@ -468,7 +468,6 @@ def tutor_server_setup(https=''):
             run('bundle install --without production')
             run('rake db:migrate')
             run('rake db:seed')
-            run('rails generate secrets')
 
 def tutor_server_run():
     """Run rails server on openstax/tutor-server"""
@@ -484,7 +483,7 @@ def tutor_server_test(test_case=None):
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('rspec {}'.format(test_case))
+                run('rspec -b {}'.format(test_case))
             else:
                 run('bundle install --without production')
                 run('rake db:migrate')
