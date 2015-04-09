@@ -45,6 +45,21 @@ def _postgres_db_exists(dbname):
     return dbname in sudo('psql -l --pset="pager=off"', user='postgres')
 
 
+def _install_nodejs():
+    # the nodejs package in trusty is too old for grunt-cli,
+    # so manually installing it here
+    if run('which node', warn_only=True):
+        return
+    sudo('apt-get install --yes make g++')
+    run('wget http://nodejs.org/dist/v0.12.2/node-v0.12.2.tar.gz')
+    run('tar xf node-v0.12.2.tar.gz')
+    with cd('node-v0.12.2'):
+        run('./configure')
+        run('make')
+        sudo('make install')
+    run('rm -rf node-v0.12.2*')
+
+
 def accounts_setup(https=''):
     """Set up openstax/accounts"""
     _setup()
@@ -488,6 +503,32 @@ def tutor_server_test(test_case=None):
                 run('bundle install --without production')
                 run('rake db:migrate')
                 run('rake')
+
+
+def tutor_js_setup(https=''):
+    """Set up openstax/tutor-js"""
+    _setup()
+    _install_nodejs()
+    sudo('npm install -g gulp bower')
+    if not fabric.contrib.files.exists('tutor-js'):
+        if https:
+            run('git clone https://github.com/openstax/tutor-js.git')
+        else:
+            run('git clone git@github.com:openstax/tutor-js.git')
+
+    with cd('tutor-js'):
+        run('npm install')
+        run('bower install')
+
+
+def tutor_js_run():
+    """Run openstax/tutor-js"""
+    with cd('tutor-js'):
+        # fabric.contrib.files.sed doesn't escape single quotes properly
+        run('''\
+sed -i "s/gulp\.task 'watch', \['styles', 'copyResources', 'copyFonts', 'tdd'\]/gulp.task 'watch', ['styles', 'copyResources', 'copyFonts']/" Gulpfile.coffee''')
+        run('PORT=8001 gulp serve')
+
 
 def osc_setup():
     """Set up lml/osc"""
