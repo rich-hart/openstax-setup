@@ -37,6 +37,20 @@ def _setup_phantomjs():
         run('tar xf phantomjs-1.9.7-linux-x86_64.tar.bz2')
 
 
+def _install_postgresql():
+    sudo('apt-get install --yes postgresql-9.3 postgresql-server-dev-9.3 postgresql-client-9.3 postgresql-contrib-9.3 postgresql-plpython-9.3 libpq-dev')
+    fabric.contrib.files.sed('/etc/postgresql/9.3/main/pg_hba.conf', '^local\s*all\s*all\s*peer\s*$', 'local all all md5', use_sudo=True)
+    sudo('/etc/init.d/postgresql restart')
+
+
+def _postgres_user_exists(username):
+    return '1' in sudo('psql postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname=\'%s\'"' % username, user='postgres')
+
+
+def _postgres_db_exists(dbname):
+    return ' {} '.format(dbname) in sudo('psql -l --pset="pager=off"', user='postgres')
+
+
 def _postgres_user_exists(username):
     return '1' in sudo('psql postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname=\'%s\'"' % username, user='postgres')
 
@@ -69,6 +83,10 @@ def accounts_setup(https=''):
             run('git clone https://github.com/openstax/accounts')
         else:
             run('git clone git@github.com:openstax/accounts')
+    if not _postgres_user_exists('accounts'):
+        sudo('psql -d postgres -c "CREATE USER accounts WITH SUPERUSER PASSWORD \'accounts\';"', user='postgres')
+    if not _postgres_db_exists('accounts'):
+        sudo('createdb -O accounts accounts', user='postgres')
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('rvm install $(cat .ruby-version)')
@@ -96,51 +114,6 @@ To use the facebook and twitter login:
 3. Set the callback url on the facebook and twitter app settings page to https://{server}:3000/auth/facebook and https://{server}:3000/auth/twitter respectively. (or the IP address of {server})
 
 """.format(server=env.host)
-
-
-def accounts_setup_postgres(https=''):
-    """Set up openstax/accounts using postgres db"""
-    _setup()
-    _setup_ssl()
-    sudo('apt-get install --yes postgresql libpq-dev')
-    if not sudo('grep "^local\s*all\s*all\s*md5" '
-                '/etc/postgresql/*/main/pg_hba.conf', warn_only=True):
-        fabric.contrib.files.sed(
-            '/etc/postgresql/*/main/pg_hba.conf',
-            '^local\s+all\s+all\s+peer\s*',
-            'local all all md5',
-            use_sudo=True)
-        sudo('/etc/init.d/postgresql restart')
-    if not fabric.contrib.files.exists('accounts'):
-        if https:
-            run('git clone https://github.com/openstax/accounts')
-        else:
-            run('git clone git@github.com:openstax/accounts.git')
-    if not _postgres_user_exists('accounts'):
-        sudo('psql -d postgres -c "CREATE USER accounts WITH SUPERUSER PASSWORD \'accounts\';"', user='postgres')
-    if not _postgres_db_exists('accounts'):
-        sudo('createdb -O accounts accounts', user='postgres')
-    with cd('accounts'):
-        with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create accounts')
-            run('rvm gemset use accounts')
-            if not fabric.contrib.files.contains('Gemfile', "^gem 'pg'"):
-                fabric.contrib.files.append('Gemfile', "gem 'pg'")
-            if not fabric.contrib.files.contains('config/database.yml', '#development'):
-                fabric.contrib.files.sed('config/database.yml', '^([^#])', r'#\1')
-                fabric.contrib.files.append('config/database.yml', '''
-development:
-  adapter: postgresql
-  database: accounts
-  username: accounts
-  password: accounts
-  port: 5432
-''')
-            run('bundle install --without production')
-            run('gem install unicorn-rails')
-            run('rake db:setup', warn_only=True)
-    _configure_accounts_nginx()
 
 
 def accounts_create_admin_user(username='admin', password='password'):
@@ -245,7 +218,11 @@ def accounts_test(test_case=None, traceback=''):
             if test_case:
                 run('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
             else:
+                if _postgres_db_exists('accounts-testing'):
+                    sudo('dropdb accounts-testing', user='postgres')
+                sudo('createdb -O accounts accounts-testing', user='postgres')
                 run('bundle install')
+                run('RAILS_ENV=test rake db:setup')
                 run('rake db:migrate')
                 run('PATH=$PATH:{} rake --trace'.format(PHANTOMJS))
 
@@ -469,12 +446,18 @@ def biglearn_platform_setup():
 def tutor_server_setup(https=''):
     """Set up openstax/tutor-server"""
     _setup()
+    _install_postgresql()
     sudo('apt-get install --yes qt5-default libqt5webkit5-dev')
     if not fabric.contrib.files.exists('tutor-server'):
         if https:
             run('git clone https://github.com/openstax/tutor-server.git')
         else:
             run('git clone git@github.com:openstax/tutor-server.git')
+    if not _postgres_user_exists('ox_tutor'):
+        sudo('psql -d postgres -c "CREATE USER ox_tutor WITH SUPERUSER PASSWORD \'ox_tutor_secret_password\';"', user='postgres')
+    if not _postgres_db_exists('ox_tutor_dev'):
+        sudo('createdb -O ox_tutor ox_tutor_dev', user='postgres')
+
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
             run('rvm install $(cat .ruby-version)')
@@ -484,6 +467,7 @@ def tutor_server_setup(https=''):
             run('rake db:migrate')
             run('rake db:seed')
 
+
 def tutor_server_run():
     """Run rails server on openstax/tutor-server"""
     with cd('tutor-server'):
@@ -491,17 +475,23 @@ def tutor_server_run():
             if fabric.contrib.files.exists('tmp/pids/server.pid'):
                 run('kill `cat tmp/pids/server.pid`', warn_only=True)
                 run('rm -f tmp/pids/server.pid')
+            run('rake db:migrate')
             run('rails server -b 0.0.0.0')
+
 
 def tutor_server_test(test_case=None):
     """Run openstax/tutor-server tests"""
+    if _postgres_db_exists('ox_tutor_test'):
+        sudo('dropdb ox_tutor_test', user='postgres')
+    sudo('createdb -O ox_tutor ox_tutor_test', user='postgres')
+
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
             if test_case:
                 run('rspec -b {}'.format(test_case))
             else:
                 run('bundle install --without production')
-                run('rake db:migrate')
+                run('rake db:drop && rake db:create && rake db:migrate')
                 run('rake')
 
 
