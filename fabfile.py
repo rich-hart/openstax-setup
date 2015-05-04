@@ -514,9 +514,6 @@ def tutor_js_setup(https=''):
 def tutor_js_run():
     """Run openstax/tutor-js"""
     with cd('tutor-js'):
-        # fabric.contrib.files.sed doesn't escape single quotes properly
-        run('''\
-sed -i "s/gulp\.task 'watch', \['styles', 'copyResources', 'copyFonts', 'tdd'\]/gulp.task 'watch', ['styles', 'copyResources', 'copyFonts']/" Gulpfile.coffee''')
         run('PORT=8001 gulp serve')
 
 
