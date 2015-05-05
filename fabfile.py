@@ -83,10 +83,10 @@ def accounts_setup(https=''):
             run('git clone https://github.com/openstax/accounts')
         else:
             run('git clone git@github.com:openstax/accounts')
-    if not _postgres_user_exists('accounts'):
-        sudo('psql -d postgres -c "CREATE USER accounts WITH SUPERUSER PASSWORD \'accounts\';"', user='postgres')
-    if not _postgres_db_exists('accounts'):
-        sudo('createdb -O accounts accounts', user='postgres')
+    if not _postgres_user_exists('ox_accounts'):
+        sudo('psql -d postgres -c "CREATE USER ox_accounts WITH SUPERUSER PASSWORD \'ox_accounts\';"', user='postgres')
+    if not _postgres_db_exists('ox_accounts_dev'):
+        sudo('createdb -O ox_accounts ox_accounts_dev', user='postgres')
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             run('rvm install $(cat .ruby-version)')
@@ -218,9 +218,9 @@ def accounts_test(test_case=None, traceback=''):
             if test_case:
                 run('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
             else:
-                if _postgres_db_exists('accounts-testing'):
-                    sudo('dropdb accounts-testing', user='postgres')
-                sudo('createdb -O accounts accounts-testing', user='postgres')
+                if _postgres_db_exists('ox_accounts_test'):
+                    sudo('dropdb ox_accounts_test', user='postgres')
+                sudo('createdb -O ox_accounts ox_accounts_test', user='postgres')
                 run('bundle install')
                 run('RAILS_ENV=test rake db:setup')
                 run('rake db:migrate')
