@@ -553,3 +553,51 @@ def osc_test(test_case=None):
                 run('bundle install')
                 run('rake db:migrate')
                 run('rake')
+
+
+def exercises_setup(https=''):
+    """Set up openstax/exercises"""
+    _setup()
+    sudo('apt-get install --yes libicu-dev')
+    if not fabric.contrib.files.exists('exercises'):
+        if https:
+            run('git clone https://github.com/openstax/exercises.git')
+        else:
+            run('git clone git@github.com:openstax/exercises.git')
+    if not _postgres_user_exists('ox_exercises'):
+        sudo('psql -d postgres -c "CREATE USER ox_exercises WITH CREATEDB PASSWORD \'ox_exercises\'"', user='postgres')
+    if not _postgres_db_exists('ox_exercises_dev'):
+        sudo('createdb -O ox_exercises ox_exercises_dev', user='postgres')
+    with cd('exercises'):
+        with prefix('source {}'.format(RVM)):
+            run('rvm install $(cat .ruby-version)')
+            run('rvm gemset create $(cat .ruby-gemset)')
+            run('rvm gemset use $(cat .ruby-gemset)')
+            run('bundle install --without production')
+            run('rake db:migrate')
+            run('rake db:seed')
+
+
+def exercises_run():
+    """Run openstax/exercises"""
+    with cd('exercises'):
+        with prefix('source {}'.format(RVM)):
+            # ctrl-c doesn't kill the rails server so the old server is still
+            # running
+            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            run('rails server')
+
+
+def exercises_test(test_case=None):
+    """Run openstax/exercises tests"""
+    if _postgres_db_exists('ox_exercises_test'):
+        sudo('dropdb ox_exercises_test', user='postgres')
+    sudo('createdb -O ox_exercises ox_exercises_test', user='postgres')
+    with cd('exercises'):
+        with prefix('source {}'.format(RVM)):
+            if test_case:
+                run('rspec -b {}'.format(test_case))
+            else:
+                run('bundle install --without production')
+                run('rake db:migrate')
+                run('rake')
