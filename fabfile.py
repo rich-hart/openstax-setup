@@ -1,4 +1,6 @@
+import signal
 import StringIO
+import sys
 import time
 
 from fabric.api import *
@@ -470,11 +472,15 @@ def tutor_server_setup(https=''):
 
 def tutor_server_run():
     """Run rails server on openstax/tutor-server"""
+    def sigint_handler(signal, frame):
+        if fabric.contrib.files.exists('tmp/pids/server.pid'):
+            run('kill `cat tmp/pids/server.pid`', warn_only=True)
+            run('rm -f tmp/pids/server.pid')
+        sys.exit(0)
+    signal.signal(signal.SIGINT, sigint_handler)
+
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
-            if fabric.contrib.files.exists('tmp/pids/server.pid'):
-                run('kill `cat tmp/pids/server.pid`', warn_only=True)
-                run('rm -f tmp/pids/server.pid')
             run('rake db:migrate')
             run('rails server -b 0.0.0.0')
 
