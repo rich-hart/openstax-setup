@@ -523,6 +523,15 @@ def tutor_js_run():
         run('PORT=8001 gulp serve')
 
 
+def tutor_js_test():
+    """Run openstax/tutor-js tests"""
+    with cd('tutor-js'):
+        sudo('npm install -g gulp bower')
+        run('bower install')
+        run('npm install')
+        run('npm test')
+
+
 def osc_setup():
     """Set up lml/osc"""
     _setup()
