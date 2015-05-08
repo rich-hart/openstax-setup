@@ -6,9 +6,14 @@ import time
 from fabric.api import *
 import fabric.contrib.files
 
+DEPLOY_DIR='/opt'
 env.use_ssh_config = True
-RVM = '~/.rvm/scripts/rvm'
-PHANTOMJS = '~/phantomjs-1.9.7-linux-x86_64/bin'
+env.hosts = 'default'
+env.ssh_config_path ='../../.ssh_config'
+env.use_sudo=True
+env.cwd= DEPLOY_DIR
+RVM = '{}/.rvm/scripts/rvm'.format(DEPLOY_DIR)
+PHANTOMJS = '{}/phantomjs-1.9.7-linux-x86_64/bin'.format(DEPLOY_DIR)
 
 
 def _setup():
@@ -20,23 +25,23 @@ def _setup():
 def _setup_rvm():
     if not fabric.contrib.files.exists(RVM):
         sudo('apt-get install --yes curl')
-        run('gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3')
-        run('wget -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
+        sudo('gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3')
+        sudo('wget -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
 
 
 def _setup_ssl():
     if not fabric.contrib.files.exists('server.crt'):
-        run('openssl genrsa -des3 -passout pass:x -out server.pass.key 2048')
-        run('openssl rsa -passin pass:x -in server.pass.key -out server.key')
-        run('rm server.pass.key')
-        run('openssl req -new -key server.key -out server.csr')
-        run('openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt')
+        sudo('openssl genrsa -des3 -passout pass:x -out server.pass.key 2048')
+        sudo('openssl rsa -passin pass:x -in server.pass.key -out server.key')
+        sudo('rm server.pass.key')
+        sudo('openssl req -new -key server.key -out server.csr')
+        sudo('openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt')
 
 
 def _setup_phantomjs():
     if not fabric.contrib.files.exists('phantomjs-1.9.7-linux-x86_64'):
-        run("wget 'https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.7-linux-x86_64.tar.bz2'")
-        run('tar xf phantomjs-1.9.7-linux-x86_64.tar.bz2')
+        sudo("wget 'https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.7-linux-x86_64.tar.bz2'")
+        sudo('tar xf phantomjs-1.9.7-linux-x86_64.tar.bz2')
 
 
 def _install_postgresql():
@@ -62,18 +67,18 @@ def _postgres_db_exists(dbname):
 
 
 def _install_nodejs():
-    # the nodejs package in trusty is too old for grunt-cli,
+    # the nodejs package in trusty is too old for gsudot-cli,
     # so manually installing it here
-    if run('which node', warn_only=True):
+    if sudo('which node', warn_only=True):
         return
     sudo('apt-get install --yes make g++')
-    run('wget http://nodejs.org/dist/v0.12.2/node-v0.12.2.tar.gz')
-    run('tar xf node-v0.12.2.tar.gz')
+    sudo('wget http://nodejs.org/dist/v0.12.2/node-v0.12.2.tar.gz')
+    sudo('tar xf node-v0.12.2.tar.gz')
     with cd('node-v0.12.2'):
-        run('./configure')
-        run('make')
+        sudo('./configure')
+        sudo('make')
         sudo('make install')
-    run('rm -rf node-v0.12.2*')
+    sudo('rm -rf node-v0.12.2*')
 
 
 def accounts_setup(https=''):
@@ -82,23 +87,23 @@ def accounts_setup(https=''):
     _setup_ssl()
     if not fabric.contrib.files.exists('accounts'):
         if https:
-            run('git clone https://github.com/openstax/accounts')
+            sudo('git clone https://github.com/openstax/accounts')
         else:
-            run('git clone git@github.com:openstax/accounts')
+            sudo('git clone git@github.com:openstax/accounts')
     if not _postgres_user_exists('ox_accounts'):
         sudo('psql -d postgres -c "CREATE USER ox_accounts WITH SUPERUSER PASSWORD \'ox_accounts\';"', user='postgres')
     if not _postgres_db_exists('ox_accounts_dev'):
         sudo('createdb -O ox_accounts ox_accounts_dev', user='postgres')
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create accounts')
-            run('rvm gemset use accounts')
+            sudo('rvm install $(cat .ruby-version)')
+            sudo('rvm gemset create accounts')
+            sudo('rvm gemset use accounts')
             # FIXME not sure why bundle isn't installed
-            run('which bundle || gem install bundle')
-            run('bundle install --without production')
-            run('gem install unicorn-rails')
-            run('rake db:setup', warn_only=True)
+            sudo('which bundle || gem install bundle')
+            sudo('bundle install --without production')
+            sudo('gem install unicorn-rails')
+            sudo('rake db:setup', warn_only=True)
     _configure_accounts_nginx()
     print """
 To use the facebook and twitter login:
@@ -130,24 +135,24 @@ identity = FactoryGirl.create :identity, user: user, password: '{}'
 FactoryGirl.create :authentication, provider: 'identity', uid: identity.id.to_s, user: user
 """.format(username, password)), 'admin_user.rb')
         with prefix('source {}'.format(RVM)):
-            run('bundle exec rails console <admin_user.rb')
+            sudo('bundle exec rails console <admin_user.rb')
 
 
-def _accounts_run():
-    # Should use accounts_run_unicorn
+def _accounts_sudo():
+    # Should use accounts_sudo_unicorn
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            run('rake db:migrate')
-            # ctrl-c doesn't kill the rails server so the old server is still running
-            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
-            run('rails server')
+            sudo('rake db:migrate')
+            # ctrl-c doesn't kill the rails server so the old server is still sudoning
+            sudo('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            sudo('rails server')
 
 
-def _accounts_run_ssl():
-    # should use accounts_run_unicorn
+def _accounts_sudo_ssl():
+    # should use accounts_sudo_unicorn
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
+            sudo('thin start -p 3000 --ssl --ssl-verify --ssl-key-file {0}/server.key --ssl-cert-file {0}/server.crt'.format(DELPOY_DIR))
 
 
 def _configure_accounts_nginx():
@@ -179,7 +184,7 @@ server {
     proxy_pass http://unicorn;
   }
 }
-""" % {'home_dir': run('pwd')}),
+""" % {'home_dir': sudo('pwd')}),
             '/etc/nginx/sites-available/accounts',
             use_sudo=True)
         sudo('ln -sf /etc/nginx/sites-available/accounts '
@@ -187,7 +192,7 @@ server {
         sudo('/etc/init.d/nginx restart')
 
 
-def accounts_run_unicorn():
+def accounts_sudo_unicorn():
     """Run openstax/accounts using unicorn_rails"""
     with cd('accounts'):
         if not fabric.contrib.files.exists('config/unicorn.rb'):
@@ -204,12 +209,12 @@ listen "/tmp/unicorn.accounts.sock"
 worker_processes 1
 
 timeout 30
-""".format(pwd=run('pwd'))), 'config/unicorn.rb')
+""".format(pwd=sudo('pwd'))), 'config/unicorn.rb')
         with prefix('source {}'.format(RVM)):
-            run('bundle install')
-            run('pkill -f unicorn_rails || 0', warn_only=True)
-            run('rm -f /tmp/unicorn.accounts.sock')
-            run('unicorn_rails -D -c config/unicorn.rb')
+            sudo('bundle install')
+            sudo('pkill -f unicorn_rails || 0', warn_only=True)
+            sudo('rm -f /tmp/unicorn.accounts.sock')
+            sudo('unicorn_rails -D -c config/unicorn.rb')
 
 
 def accounts_test(test_case=None, traceback=''):
@@ -218,22 +223,22 @@ def accounts_test(test_case=None, traceback=''):
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
+                sudo('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
             else:
                 if _postgres_db_exists('ox_accounts_test'):
                     sudo('dropdb ox_accounts_test', user='postgres')
                 sudo('createdb -O ox_accounts ox_accounts_test', user='postgres')
-                run('bundle install')
-                run('RAILS_ENV=test rake db:setup')
-                run('rake db:migrate')
-                run('PATH=$PATH:{} rake --trace'.format(PHANTOMJS))
+                sudo('bundle install')
+                sudo('RAILS_ENV=test rake db:setup')
+                sudo('rake db:migrate')
+                sudo('PATH=$PATH:{} rake --trace'.format(PHANTOMJS))
 
 
 def accounts_routes():
     """Run "rake routes" on openstax/accounts"""
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            run('rake routes')
+            sudo('rake routes')
 
 
 def example_setup():
@@ -241,14 +246,14 @@ def example_setup():
     _setup()
     sudo('apt-get install --yes nodejs')
     if not fabric.contrib.files.exists('connect-rails'):
-        run('git clone https://github.com/openstax/connect-rails')
+        sudo('git clone https://github.com/openstax/connect-rails')
     with cd('connect-rails'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install ruby-1.9.3-p392')
-            run('rvm gemset create connect-rails')
-            run('rvm gemset use connect-rails')
-            run('bundle install --without production')
-    pwd = run('pwd')
+            sudo('rvm install ruby-1.9.3-p392')
+            sudo('rvm gemset create connect-rails')
+            sudo('rvm gemset use connect-rails')
+            sudo('bundle install --without production')
+    pwd = sudo('pwd')
     filename = 'connect-rails/lib/openstax/connect/engine.rb'
     if not fabric.contrib.files.contains(filename, ':client_options'):
         fabric.contrib.files.sed(
@@ -259,8 +264,8 @@ def example_setup():
             % pwd)
     with cd('connect-rails/example'):
         with prefix('source {}'.format(RVM)):
-            run('rake db:setup', warn_only=True)
-            run('rake openstax_connect:install:migrations')
+            sudo('rake db:setup', warn_only=True)
+            sudo('rake openstax_connect:install:migrations')
 
     print """
 To set up openstax/connect-rails with openstax/accounts:
@@ -285,93 +290,93 @@ See https://github.com/openstax/connect-rails for full documentation.
 """.format(server=env.host)
 
 
-def example_run():
+def example_sudo():
     """Run openstax/connect-rails (outdated)"""
     with cd('connect-rails/example'):
         with prefix('source {}'.format(RVM)):
-            run('rake db:migrate')
+            sudo('rake db:migrate')
             # ctrl-c doesn't kill the rails server so the old server is still
-            # running
-            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
-            run('rails server')
+            # sudoning
+            sudo('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            sudo('rails server')
 
 
 def accounts_pyramid_setup(https=''):
     """Set up Connexions/openstax-accounts (python)"""
     if not fabric.contrib.files.exists('openstax-accounts'):
         if https:
-            run('git clone https://github.com/Connexions/openstax-accounts.git')
+            sudo('git clone https://github.com/Connexions/openstax-accounts.git')
         else:
-            run('git clone git@github.com:Connexions/openstax-accounts.git')
+            sudo('git clone git@github.com:Connexions/openstax-accounts.git')
 
 
-def accounts_pyramid_run():
+def accounts_pyramid_sudo():
     """Run Connexions/openstax-accounts (python)"""
     with cd('openstax-accounts'):
-        run('./bin/python setup.py install')
-        run('./bin/pserve development.ini')
+        sudo('./bin/python setup.py install')
+        sudo('./bin/pserve development.ini')
 
 
 def accounts_pyramid_test(test_case=None, display=None, test_all=None):
     """Run Connexions/openstax-accounts (python) tests"""
     if not display:
         sudo('apt-get install --yes xvfb')
-        run('pkill -f xvfb', warn_only=True)
+        sudo('pkill -f xvfb', warn_only=True)
     if test_case:
         test_case = '-s {}'.format(test_case)
     else:
         test_case = ''
     if not fabric.contrib.files.exists('openstax-accounts'):
-        run('git clone https://github.com/Connexions/openstax-accounts.git')
+        sudo('git clone https://github.com/Connexions/openstax-accounts.git')
     if not fabric.contrib.files.exists('openstax-accounts/chromedriver'):
         with cd('openstax-accounts'):
             if not fabric.contrib.files.exists('chromedriver'):
-                run("wget 'http://chromedriver.storage.googleapis.com/2.14/chromedriver_linux64.zip'")
+                sudo("wget 'http://chromedriver.storage.googleapis.com/2.14/chromedriver_linux64.zip'")
                 sudo('apt-get install --yes unzip')
-                run('unzip chromedriver_linux64.zip')
-                run('rm chromedriver_linux64.zip')
+                sudo('unzip chromedriver_linux64.zip')
+                sudo('rm chromedriver_linux64.zip')
                 sudo('apt-get install --yes chromium-browser')
     sudo('apt-get install --yes python-virtualenv')
     with cd('openstax-accounts'):
         if not fabric.contrib.files.exists('bin/python'):
-            run('virtualenv .')
+            sudo('virtualenv .')
         env = ['PATH=$PATH:.']
         if display:
             env.append('DISPLAY={}'.format(display))
-        run('./bin/python setup.py install')
+        sudo('./bin/python setup.py install')
         if test_case:
-            run('{} {} ./bin/python setup.py test {}'.format(' '.join(env),
-                not display and 'xvfb-run' or '', test_case))
+            sudo('{} {} ./bin/python setup.py test {}'.format(' '.join(env),
+                not display and 'xvfb-sudo' or '', test_case))
         elif test_all:
-            run('{} {} ./bin/python setup.py test -s '
+            sudo('{} {} ./bin/python setup.py test -s '
                 'openstax_accounts.tests.FunctionalTests'
-                .format(' '.join(env), not display and 'xvfb-run' or ''))
+                .format(' '.join(env), not display and 'xvfb-sudo' or ''))
             env.append('TESTING_INI=test_stub.ini')
-            run('{} {} ./bin/python setup.py test -s '
+            sudo('{} {} ./bin/python setup.py test -s '
                 'openstax_accounts.tests.StubTests'
-                .format(' '.join(env), not display and 'xvfb-run' or ''))
+                .format(' '.join(env), not display and 'xvfb-sudo' or ''))
         else:
             env.append('LOCAL_INI=.travis_testing.ini')
-            run('{} {} ./bin/python setup.py test'
-                .format(' '.join(env), not display and 'xvfb-run' or ''))
+            sudo('{} {} ./bin/python setup.py test'
+                .format(' '.join(env), not display and 'xvfb-sudo' or ''))
 
 def tutor_deployment_setup():
     if not fabric.contrib.files.exists('tutor-deployment'):
-        run('git clone -b feature/exercises git@github.com:openstax/tutor-deployment.git')
+        sudo('git clone -b feature/exercises git@github.com:openstax/tutor-deployment.git')
         sudo('pip install virtualenvwrapper')
     with cd('tutor-deployment'):
         with prefix('WORKON_HOME=$HOME/.environments'):
             with prefix('source /usr/local/bin/virtualenvwrapper_lazy.sh'):
-                run('mkvirtualenv -p `which python2` tutordep')
+                sudo('mkvirtualenv -p `which python2` tutordep')
                 with prefix('workon tutordep'):
-                    run('pip install -r requirements.txt')
+                    sudo('pip install -r requirements.txt')
 
 def accounts_deploy(env='qa'):
     with cd('tutor-deployment'):
         with prefix('WORKON_HOME=$HOME/.environments'):
             with prefix('source /usr/local/bin/virtualenvwrapper_lazy.sh'):
                 with prefix('workon tutordep'):
-                    run('ansible-playbook -i environments/{env}/accounts-{env}1 '
+                    sudo('ansible-playbook -i environments/{env}/accounts-{env}1 '
                         'accounts_only.yml '
                         '--vault-password-file $HOME/.ssh/vault-accounts-{env}1 '
                         '--private-key $HOME/.ssh/tutor-{env}-kp.pem'.format(env=env))
@@ -379,37 +384,37 @@ def accounts_deploy(env='qa'):
 def openstax_api_setup(https=''):
     if not fabric.contrib.files.exists('openstax_api'):
         if https:
-            run('git clone https://github.com/openstax/openstax_api.git')
+            sudo('git clone https://github.com/openstax/openstax_api.git')
         else:
-            run('git clone git@github.com:openstax/openstax_api.git')
+            sudo('git clone git@github.com:openstax/openstax_api.git')
     with cd('openstax_api'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create openstax_api')
-            run('rvm gemset use openstax_api')
+            sudo('rvm install $(cat .ruby-version)')
+            sudo('rvm gemset create openstax_api')
+            sudo('rvm gemset use openstax_api')
 
 def openstax_api_test():
     with cd('openstax_api'):
         with prefix('source {}'.format(RVM)):
-            run('rvm gemset use openstax_api')
-            run('bundle')
-            run('rake db:migrate')
-            run('rake')
+            sudo('rvm gemset use openstax_api')
+            sudo('bundle')
+            sudo('rake db:migrate')
+            sudo('rake')
 
 def biglearn_algs_setup():
     """Set up openstax/biglearn-algs"""
     sudo('apt-get install python-numpy python-scipy')
     sudo('pip install virtualenvwrapper')
     if not fabric.contrib.files.exists('biglearn-algs'):
-        run('git clone git@github.com:openstax/biglearn-algs.git')
+        sudo('git clone git@github.com:openstax/biglearn-algs.git')
     with cd('biglearn-algs'
             ), prefix('export WORKON_HOME=$HOME/.environments'
                       ), prefix('source /usr/local/bin/virtualenvwrapper.sh'):
         # --system-side-packages includes dist packages (like scipy and
         # numpy) in virtualenv
-        run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
+        sudo('mkvirtualenv -p `which python2` --system-site-packages blapidev')
         with prefix('workon blapidev'):
-            run('pip install -e .')
+            sudo('pip install -e .')
 
 def biglearn_algs_test():
     """Run openstax/biglearn-algs tests"""
@@ -417,19 +422,19 @@ def biglearn_algs_test():
         with prefix('export WORKON_HOME=$HOME/.environments'):
             with prefix('source /usr/local/bin/virtualenvwrapper.sh'):
                 with prefix('workon blapidev'):
-                    run('python setup.py test')
+                    sudo('python setup.py test')
 
 def biglearn_common_setup():
     """Set up openstax/biglearn-common"""
     sudo('pip install virtualenvwrapper')
     if not fabric.contrib.files.exists('biglearn-common'):
-        run('git clone git@github.com:openstax/biglearn-common.git')
+        sudo('git clone git@github.com:openstax/biglearn-common.git')
     with cd('biglearn-common'
             ), prefix('export WORKON_HOME=$HOME/.environments'
                       ), prefix('source /usr/local/bin/virtualenvwrapper.sh'):
-        run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
+        sudo('mkvirtualenv -p `which python2` --system-site-packages blapidev')
         with prefix('workon blapidev'):
-            run('pip install -e .')
+            sudo('pip install -e .')
 
 def biglearn_platform_setup():
     """Set up openstax/biglearn-platform"""
@@ -437,13 +442,13 @@ def biglearn_platform_setup():
     biglearn_algs_setup()
     sudo('pip install virtualenvwrapper')
     if not fabric.contrib.files.exists('biglearn-platform'):
-        run('git clone git@github.com:openstax/biglearn-platform.git')
+        sudo('git clone git@github.com:openstax/biglearn-platform.git')
     with cd('biglearn-platform/app'
             ), prefix('export WORKON_HOME=$HOME/.environments'
                       ), prefix('source /usr/local/bin/virtualenvwrapper.sh'):
-        run('mkvirtualenv -p `which python2` --system-site-packages blapidev')
+        sudo('mkvirtualenv -p `which python2` --system-site-packages blapidev')
         with prefix('workon blapidev'):
-            run('pip install -e .')
+            sudo('pip install -e .')
 
 def tutor_server_setup(https=''):
     """Set up openstax/tutor-server"""
@@ -452,9 +457,9 @@ def tutor_server_setup(https=''):
     sudo('apt-get install --yes qt5-default libqt5webkit5-dev')
     if not fabric.contrib.files.exists('tutor-server'):
         if https:
-            run('git clone https://github.com/openstax/tutor-server.git')
+            sudo('git clone https://github.com/openstax/tutor-server.git')
         else:
-            run('git clone git@github.com:openstax/tutor-server.git')
+            sudo('git clone git@github.com:openstax/tutor-server.git')
     if not _postgres_user_exists('ox_tutor'):
         sudo('psql -d postgres -c "CREATE USER ox_tutor WITH SUPERUSER PASSWORD \'ox_tutor_secret_password\';"', user='postgres')
     if not _postgres_db_exists('ox_tutor_dev'):
@@ -462,27 +467,27 @@ def tutor_server_setup(https=''):
 
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create $(cat .ruby-gemset)')
-            run('rvm gemset use $(cat .ruby-gemset)')
-            run('bundle install --without production')
-            run('rake db:migrate')
-            run('rake db:seed')
+            sudo('rvm install $(cat .ruby-version)')
+            sudo('rvm gemset create $(cat .ruby-gemset)')
+            sudo('rvm gemset use $(cat .ruby-gemset)')
+            sudo('bundle install --without production')
+            sudo('rake db:migrate')
+            sudo('rake db:seed')
 
 
-def tutor_server_run():
+def tutor_server_sudo():
     """Run rails server on openstax/tutor-server"""
     def sigint_handler(signal, frame):
         if fabric.contrib.files.exists('tmp/pids/server.pid'):
-            run('kill `cat tmp/pids/server.pid`', warn_only=True)
-            run('rm -f tmp/pids/server.pid')
+            sudo('kill `cat tmp/pids/server.pid`', warn_only=True)
+            sudo('rm -f tmp/pids/server.pid')
         sys.exit(0)
     signal.signal(signal.SIGINT, sigint_handler)
 
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
-            run('rake db:migrate')
-            run('rails server -b 0.0.0.0')
+            sudo('rake db:migrate')
+            sudo('rails server -b 0.0.0.0')
 
 
 def tutor_server_test(test_case=None):
@@ -494,11 +499,11 @@ def tutor_server_test(test_case=None):
     with cd('tutor-server'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('rspec -b {}'.format(test_case))
+                sudo('rspec -b {}'.format(test_case))
             else:
-                run('bundle install --without production')
-                run('rake db:drop && rake db:create && rake db:migrate')
-                run('rake')
+                sudo('bundle install --without production')
+                sudo('rake db:drop && rake db:create && rake db:migrate')
+                sudo('rake')
 
 
 def tutor_js_setup(https=''):
@@ -508,28 +513,28 @@ def tutor_js_setup(https=''):
     sudo('npm install -g gulp bower')
     if not fabric.contrib.files.exists('tutor-js'):
         if https:
-            run('git clone https://github.com/openstax/tutor-js.git')
+            sudo('git clone https://github.com/openstax/tutor-js.git')
         else:
-            run('git clone git@github.com:openstax/tutor-js.git')
+            sudo('git clone git@github.com:openstax/tutor-js.git')
 
     with cd('tutor-js'):
-        run('npm install')
-        run('bower install')
+        sudo('npm install')
+        sudo('bower install')
 
 
-def tutor_js_run():
+def tutor_js_sudo():
     """Run openstax/tutor-js"""
     with cd('tutor-js'):
-        run('PORT=8001 gulp serve')
+        sudo('PORT=8001 gulp serve')
 
 
 def tutor_js_test():
     """Run openstax/tutor-js tests"""
     with cd('tutor-js'):
         sudo('npm install -g gulp bower')
-        run('bower install')
-        run('npm install')
-        run('npm test')
+        sudo('bower install')
+        sudo('npm install')
+        sudo('npm test')
 
 
 def osc_setup():
@@ -537,37 +542,37 @@ def osc_setup():
     _setup()
     sudo('apt-get install libxml2-dev libxslt-dev')
     if not fabric.contrib.files.exists('osc'):
-        run('git clone git@github.com:lml/osc.git')
+        sudo('git clone git@github.com:lml/osc.git')
     with cd('osc'):
-        run('rm -f .rvmrc')
+        sudo('rm -f .rvmrc')
         with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create $(cat .ruby-gemset)')
-            run('rvm gemset use $(cat .ruby-gemset)')
+            sudo('rvm install $(cat .ruby-version)')
+            sudo('rvm gemset create $(cat .ruby-gemset)')
+            sudo('rvm gemset use $(cat .ruby-gemset)')
             # Install bundler in case it is not installed
-            run('which bundle || gem install bundler')
-            run('bundle install --without production')
-            run('rake db:setup')
+            sudo('which bundle || gem install bundler')
+            sudo('bundle install --without production')
+            sudo('rake db:setup')
 
-def osc_run():
+def osc_sudo():
     """Run lml/osc server"""
     with cd('osc'):
         with prefix('source {}'.format(RVM)):
             # ctrl-c doesn't kill the rails server so the old server is still
-            # running
-            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
-            run('rails server -p 3002')
+            # sudoning
+            sudo('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            sudo('rails server -p 3002')
 
 def osc_test(test_case=None):
     """Run lml/osc tests"""
     with cd('osc'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('rspec -b {}'.format(test_case))
+                sudo('rspec -b {}'.format(test_case))
             else:
-                run('bundle install')
-                run('rake db:migrate')
-                run('rake')
+                sudo('bundle install')
+                sudo('rake db:migrate')
+                sudo('rake')
 
 
 def exercises_setup(https=''):
@@ -576,31 +581,31 @@ def exercises_setup(https=''):
     sudo('apt-get install --yes libicu-dev')
     if not fabric.contrib.files.exists('exercises'):
         if https:
-            run('git clone https://github.com/openstax/exercises.git')
+            sudo('git clone https://github.com/openstax/exercises.git')
         else:
-            run('git clone git@github.com:openstax/exercises.git')
+            sudo('git clone git@github.com:openstax/exercises.git')
     if not _postgres_user_exists('ox_exercises'):
         sudo('psql -d postgres -c "CREATE USER ox_exercises WITH CREATEDB PASSWORD \'ox_exercises\'"', user='postgres')
     if not _postgres_db_exists('ox_exercises_dev'):
         sudo('createdb -O ox_exercises ox_exercises_dev', user='postgres')
     with cd('exercises'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create $(cat .ruby-gemset)')
-            run('rvm gemset use $(cat .ruby-gemset)')
-            run('bundle install --without production')
-            run('rake db:migrate')
-            run('rake db:seed')
+            sudo('rvm install $(cat .ruby-version)')
+            sudo('rvm gemset create $(cat .ruby-gemset)')
+            sudo('rvm gemset use $(cat .ruby-gemset)')
+            sudo('bundle install --without production')
+            sudo('rake db:migrate')
+            sudo('rake db:seed')
 
 
-def exercises_run():
+def exercises_sudo():
     """Run openstax/exercises"""
     with cd('exercises'):
         with prefix('source {}'.format(RVM)):
             # ctrl-c doesn't kill the rails server so the old server is still
-            # running
-            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
-            run('rails server')
+            # sudoning
+            sudo('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            sudo('rails server')
 
 
 def exercises_test(test_case=None):
@@ -611,11 +616,11 @@ def exercises_test(test_case=None):
     with cd('exercises'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('rspec -b {}'.format(test_case))
+                sudo('rspec -b {}'.format(test_case))
             else:
-                run('bundle install --without production')
-                run('rake db:migrate')
-                run('rake')
+                sudo('bundle install --without production')
+                sudo('rake db:migrate')
+                sudo('rake')
 
 
 def exchange_setup(https=''):
@@ -623,31 +628,31 @@ def exchange_setup(https=''):
     _setup()
     if not fabric.contrib.files.exists('exchange'):
         if https:
-            run('git clone https://github.com/openstax/exchange.git')
+            sudo('git clone https://github.com/openstax/exchange.git')
         else:
-            run('git clone git@github.com:openstax/exchange.git')
+            sudo('git clone git@github.com:openstax/exchange.git')
     if not _postgres_user_exists('ox_exchange'):
         sudo('psql -d postgres -c "CREATE USER ox_exchange WITH CREATEDB PASSWORD \'ox_exchange\'"', user='postgres')
     if not _postgres_db_exists('ox_exchange_dev'):
         sudo('createdb -O ox_exchange ox_exchange_dev', user='postgres')
     with cd('exchange'):
         with prefix('source {}'.format(RVM)):
-            run('rvm install $(cat .ruby-version)')
-            run('rvm gemset create $(cat .ruby-gemset)')
-            run('rvm gemset use $(cat .ruby-gemset)')
-            run('bundle install --without production')
-            run('rake db:migrate')
-            run('rake db:seed')
+            sudo('rvm install $(cat .ruby-version)')
+            sudo('rvm gemset create $(cat .ruby-gemset)')
+            sudo('rvm gemset use $(cat .ruby-gemset)')
+            sudo('bundle install --without production')
+            sudo('rake db:migrate')
+            sudo('rake db:seed')
 
 
-def exchange_run():
+def exchange_sudo():
     """Run openstax/exchange"""
     with cd('exchange'):
         with prefix('source {}'.format(RVM)):
             # ctrl-c doesn't kill the rails server so the old server is still
-            # running
-            run('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
-            run('rails server')
+            # sudoning
+            sudo('kill -9 `cat tmp/pids/server.pid`', warn_only=True)
+            sudo('rails server')
 
 
 def exchange_test(test_case=None):
@@ -658,8 +663,8 @@ def exchange_test(test_case=None):
     with cd('exchange'):
         with prefix('source {}'.format(RVM)):
             if test_case:
-                run('rspec -b {}'.format(test_case))
+                sudo('rspec -b {}'.format(test_case))
             else:
-                run('bundle install --without production')
-                run('rake db:migrate')
-                run('rake')
+                sudo('bundle install --without production')
+                sudo('rake db:migrate')
+                sudo('rake')
