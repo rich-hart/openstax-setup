@@ -81,6 +81,23 @@ def _install_nodejs():
         sudo('make install')
     sudo('rm -rf node-v0.12.2*')
 
+def _setup_login_accounts():
+    sudo("cat >{}/accounts/config/secret_settings.yml <<EOF\n"
+         "# Set up facebook and twitter app id and secret\n"
+         "secret_token: 'Hu7aghaiaiPai2ewAix8OoquNoa1cah4'\n"
+         "smtp_settings:\n"
+         "  address: 'localhost'\n"
+         "  port: 25\n"
+         "# Facebook OAuth API settings\n"
+         "facebook_app_id: '114585082701'\n"
+         "facebook_app_secret: '35b6df2c95b8e3bc7bcd46ce47b1ae02'\n"
+         "# Twitter OAuth API settings\n"
+         "twitter_consumer_key: 'wsSnMNS15nbJRDTqDCDc9IxVs'\n"
+         "twitter_consumer_secret: '78OkKbqZbVSGOZcW7Uv6XyTJWKITepl4TeR7rawjkAsBR5pgZ8'\n"
+         "# Google OAuth API settings \n"
+         "google_client_id: '860946374358-7fvpoadjfpgr2c3d61gca4neatsuhb6a.apps.googleusercontent.com'\n "
+         "google_client_secret: '7gr2AYXrs1GneoVm4mKjG98N'\n"
+         "EOF\n".format(DEPLOY_DIR))
 
 def accounts_setup(https=''):
     """Set up openstax/accounts"""
@@ -106,6 +123,7 @@ def accounts_setup(https=''):
             sudo('gem install unicorn-rails')
             sudo('rake db:setup', warn_only=True)
     _configure_accounts_nginx()
+    _setup_login_accounts()
     print """
 To use the facebook and twitter login:
 
