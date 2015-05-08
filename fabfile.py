@@ -27,7 +27,8 @@ def _setup_rvm():
         sudo('apt-get install --yes curl')
         sudo('gpg --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3')
         sudo('wget -q -O - https://get.rvm.io | bash -s -- --ignore-dotfiles')
-
+        sudo('mv /usr/local/rvm/ {}/.rvm'.format(DEPLOY_DIR))
+        #run('mv ~/.rvm {}/.rvm'.format(DEPLOY_DIR)) # when not run a root
 
 def _setup_ssl():
     if not fabric.contrib.files.exists('server.crt'):
