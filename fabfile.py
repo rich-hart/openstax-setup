@@ -4,9 +4,9 @@ import time
 from fabric.api import *
 import fabric.contrib.files
 
-env.use_ssh_config = True
-RVM = '~/.rvm/scripts/rvm'
-PHANTOMJS = '~/phantomjs-1.9.7-linux-x86_64/bin'
+#env.use_ssh_config = True
+RVM = '$DEPLOY_DIR/.rvm/scripts/rvm'
+PHANTOMJS = '$DEPLOY_DIR/phantomjs-1.9.7-linux-x86_64/bin'
 
 
 def _setup():
@@ -154,7 +154,7 @@ def _accounts_run_ssl():
     # should use accounts_run_unicorn
     with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file ~/server.key --ssl-cert-file ~/server.crt')
+            run('thin start -p 3000 --ssl --ssl-verify --ssl-key-file $DEPLOY_DIR/server.key --ssl-cert-file $DEPLOY_DIR/server.crt')
 
 
 def _configure_accounts_nginx():
