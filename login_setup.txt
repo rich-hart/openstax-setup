@@ -1,0 +1,15 @@
+# Set up facebook and twitter app id and secret
+secret_token: 'Hu7aghaiaiPai2ewAix8OoquNoa1cah4'
+smtp_settings:
+  address: 'localhost'
+  port: 25
+# Facebook OAuth API settings
+facebook_app_id: '114585082701'
+facebook_app_secret: '35b6df2c95b8e3bc7bcd46ce47b1ae02'
+# Twitter OAuth API settings
+twitter_consumer_key: 'wsSnMNS15nbJRDTqDCDc9IxVs'
+twitter_consumer_secret: '78OkKbqZbVSGOZcW7Uv6XyTJWKITepl4TeR7rawjkAsBR5pgZ8'
+# Google OAuth API settings
+google_client_id: '860946374358-7fvpoadjfpgr2c3d61gca4neatsuhb6a.apps.googleusercontent.com'
+google_client_secret: '7gr2AYXrs1GneoVm4mKjG98N'
+
