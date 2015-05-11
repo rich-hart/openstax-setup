@@ -12,14 +12,20 @@ RVM = '{DEPLOY_DIR}/.rvm/scripts/rvm'.format(**env)
 PHANTOMJS = '{DEPLOY_DIR}/phantomjs-1.9.7-linux-x86_64/bin'.format(**env)
 env.LOCAL_WD = '/Users/openstax/workspace/openstax-setup'
 env.hosts = 'virtual_machine'
+
+def temp():
+    with cd(env.DEPLOY_DIR):
+        sudo("pwd")
 def deploy():
     #with shell_env(DEPLOY_DIR = '/opt', LOCAL_WD = '/Users/openstax/workspace/openstax-setup'):
     with cd(env.DEPLOY_DIR):
-         accounts_setup(https=True)
-         put("{LOCAL_WD}/login_setup.txt".format(**env),"{DEPLOY_DIR}/accounts/login_setup.txt".format(**env))
-         sudo( "cat >{DEPLOY_DIR}/accounts/config/secret_settings.yml << {DEPLOY_DIR}/accounts/login_setup.txt".format(**env))
-         accounts_sudo_unicorn()
-         accounts_create_admin_user()
+         #with("HOME={DEPLOY_DIR}".format(**env))
+        accounts_setup(https=True)
+        put("{LOCAL_WD}/login_setup.txt".format(**env),"{DEPLOY_DIR}/accounts/login_setup.txt".format(**env), use_sudo=True )
+        sudo( "cat >{DEPLOY_DIR}/accounts/config/secret_settings.yml < {DEPLOY_DIR}/accounts/login_setup.txt".format(**env))
+        import ipdb; ipdb.set_trace()
+        accounts_sudo_unicorn()
+        accounts_create_admin_user()
 
 def _setup():
     sudo('apt-get update')
@@ -71,7 +77,9 @@ def accounts_setup(https=''):
             sudo('rvm install $(cat .ruby-version)')
             sudo('rvm gemset create accounts')
             sudo('rvm gemset use accounts')
-            sudo('bundle install --without production')
+    with cd('accounts'):
+            run('sudo -p vagrant bundle install --without production') #has to be its own rapped command in fabric
+    with cd('accounts'):
             sudo('gem install unicorn-rails')
             sudo('rake db:setup', warn_only=True)
     _configure_accounts_nginx()
@@ -132,7 +140,11 @@ development:
   password: accounts
   port: 5432
 ''')
-            sudo('bundle install --without production')
+    with cd('accounts'):
+        with prefix('source {}'.format(RVM)):
+            run('sudo -p vagrant bundle install --without production')
+    with cd('accounts'):
+        with prefix('source {}'.format(RVM)):
             sudo('gem install unicorn-rails')
             sudo('rake db:setup', warn_only=True)
     _configure_accounts_nginx()
@@ -148,9 +160,10 @@ def accounts_create_admin_user(username='admin', password='password'):
 user = FactoryGirl.create :user, :admin, :terms_agreed, username: '{}'
 identity = FactoryGirl.create :identity, user: user, password: '{}'
 FactoryGirl.create :authentication, provider: 'identity', uid: identity.id.to_s, user: user
-""".format(username, password)), 'admin_user.rb')
+""".format(username, password)), 'admin_user.rb',use_sudo=True)
+    with cd('accounts'):
         with prefix('source {}'.format(RVM)):
-            sudo('bundle exec rails console <admin_user.rb')
+            run('sudo -p vagrant bundle exec rails console <admin_user.rb')
 
 
 def _accounts_sudo():
@@ -224,23 +237,31 @@ listen "/tmp/unicorn.accounts.sock"
 worker_processes 1
 
 timeout 30
-""".format(pwd=sudo('pwd'))), 'config/unicorn.rb')
+""".format(pwd=sudo('pwd'))), 'config/unicorn.rb', use_sudo=True)
+    #run('echo "broken sudo"')
+    with cd('{DEPLOY_DIR}/accounts'.format(**env)):
         with prefix('source {}'.format(RVM)):
-            sudo('bundle install')
-            sudo('pkill -f unicorn_rails || 0', warn_only=True)
-            sudo('rm -f /tmp/unicorn.accounts.sock')
-            sudo('unicorn_rails -D -c config/unicorn.rb')
+            run("sudo -p vagrant bundle install")
+    with cd('accounts'):
+        with prefix('source {}'.format(RVM)):
+            run('sudo -p vagrant pkill -f unicorn_rails || 0', warn_only=True)
+            run('sudo -p vagrant rm -f /tmp/unicorn.accounts.sock')
+            run('sudo -p vagrant unicorn_rails -D -c config/unicorn.rb')
 
 
 def accounts_test(test_case=None, traceback=''):
     """Run openstax/accounts tests"""
     _setup_phantomjs()
-    with cd('accounts'):
-        with prefix('source {}'.format(RVM)):
-            if test_case:
+    if test_case:
+        with cd('accounts'):
+            with prefix('source {}'.format(RVM)):
                 sudo('PATH=$PATH:{} rspec {} {}'.format(PHANTOMJS, traceback and '-b', test_case))
-            else:
-                sudo('bundle install')
+    else:
+        with cd('accounts'):
+            with prefix('source {}'.format(RVM)):
+                run('sudo -p vagrant bundle install')
+        with cd('accounts'):
+            with prefix('source {}'.format(RVM)):
                 sudo('rake db:migrate')
                 sudo('PATH=$PATH:{} rake --trace'.format(PHANTOMJS))
 
@@ -263,7 +284,9 @@ def example_setup():
             sudo('rvm install ruby-1.9.3-p392')
             sudo('rvm gemset create connect-rails')
             sudo('rvm gemset use connect-rails')
-            sudo('bundle install --without production')
+    with cd('connect-rails'):
+        with prefix('source {}'.format(RVM)):
+            run('sudo -p vagrant bundle install --without production')
     pwd = sudo('pwd')
     filename = 'connect-rails/lib/openstax/connect/engine.rb'
     if not fabric.contrib.files.contains(filename, ':client_options'):
@@ -414,7 +437,7 @@ def openstax_api_test():
     with cd('openstax_api'):
         with prefix('source {}'.format(RVM)):
             sudo('rvm gemset use openstax_api')
-            sudo('bundle')
+            run('sudo -p vagrant bundle')
             sudo('rake db:migrate')
             sudo('rake')
 
