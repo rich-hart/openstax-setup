@@ -14,8 +14,10 @@ env.LOCAL_WD = '/Users/openstax/workspace/openstax-setup'
 env.hosts = 'virtual_machine'
 
 def temp():
-    with cd(env.DEPLOY_DIR):
-        sudo("pwd")
+    print("hi")
+    #with cd(env.DEPLOY_DIR):
+    #    sudo("pwd")
+
 def deploy():
     #with shell_env(DEPLOY_DIR = '/opt', LOCAL_WD = '/Users/openstax/workspace/openstax-setup'):
     with cd(env.DEPLOY_DIR):
