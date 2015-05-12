@@ -25,7 +25,7 @@ def deploy():
         accounts_setup(https=True)
         put("{LOCAL_WD}/login_setup.txt".format(**env),"{DEPLOY_DIR}/accounts/login_setup.txt".format(**env), use_sudo=True )
         sudo( "cat >{DEPLOY_DIR}/accounts/config/secret_settings.yml < {DEPLOY_DIR}/accounts/login_setup.txt".format(**env))
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         accounts_sudo_unicorn()
         accounts_create_admin_user()
 
